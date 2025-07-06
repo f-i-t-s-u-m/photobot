@@ -47,7 +47,15 @@ async function getUser(userId: string): Promise<User | null> {
       sql: "SELECT * FROM users WHERE user_id = ?",
       args: [userId],
     });
-    return (result.rows[0] as User) || null;
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      user_id: row.user_id as string,
+      watermark_file_id: row.watermark_file_id as string,
+      watermark_position: row.watermark_position as string,
+      created_at: row.created_at as string,
+      updated_at: row.updated_at as string,
+    };
   } catch (error) {
     console.error("Error getting user:", error);
     throw error;

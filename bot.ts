@@ -6,7 +6,7 @@ import {
   updateWatermarkPosition,
   hasWatermark,
 } from "./database";
-import { processImage } from "./imageProcessor";
+import { processImage, type WatermarkPositionType } from "./imageProcessor";
 import axios from "axios";
 
 // Type definitions
@@ -91,6 +91,8 @@ async function setWebhook(url: string): Promise<any> {
       }
     );
 
+    console.log(response.data);
+
     const result = response.data;
     if (!result.ok) {
       throw new Error(`Failed to set webhook: ${result.description}`);
@@ -133,6 +135,11 @@ async function handleStart(msg: TelegramMessage): Promise<void> {
 
     if (hasUserWatermark) {
       const user = await getUser(userId.toString());
+      if (!user) {
+        const message = `Welcome to the Watermark Bot! 🖼️\n\nI'll help you add watermarks to your photos.\n\nTo get started, please send me an image that you'd like to use as your watermark (preferably a PNG with transparent background).`;
+        await bot.sendMessage(chatId, message);
+        return;
+      }
       const message = `Welcome back! 🎉\n\nYour watermark is set to position: *${user.watermark_position}*\n\nSend me a photo to add your watermark, or send a new image to update your watermark.`;
 
       await bot.sendMessage(chatId, message, { parse_mode: "Markdown" });
@@ -183,10 +190,17 @@ async function handlePhoto(msg: TelegramMessage): Promise<void> {
 
     // Process the photo with watermark
     const user = await getUser(userId.toString());
+    if (!user) {
+      await bot.sendMessage(
+        chatId,
+        "User data not found. Please try /start again."
+      );
+      return;
+    }
     const watermarkedBuffer = await processImage(
       fileId,
       user.watermark_file_id,
-      user.watermark_position,
+      user.watermark_position as WatermarkPositionType,
       bot
     );
 
@@ -219,7 +233,6 @@ async function handlePhoto(msg: TelegramMessage): Promise<void> {
     await bot.sendPhoto(chatId, watermarkedBuffer, {
       caption: `Here's your photo with watermark! Position: ${user.watermark_position}`,
       reply_markup: keyboard,
-      filename: "watermarked_photo.jpg",
     });
   } catch (error) {
     console.error("Error handling photo:", error);
@@ -298,12 +311,18 @@ async function handleCallbackQuery(
 
       // Get user's watermark
       const user = await getUser(userId.toString());
+      if (!user) {
+        await bot.answerCallbackQuery(query.id, {
+          text: "User data not found. Please try /start again.",
+        });
+        return;
+      }
 
       // Process photo with new position
       const watermarkedBuffer = await processImage(
         photoFileId,
         user.watermark_file_id,
-        position,
+        position as WatermarkPositionType,
         bot
       );
 
@@ -323,7 +342,6 @@ async function handleCallbackQuery(
       await bot.sendPhoto(chatId, watermarkedBuffer, {
         caption: `Updated! Watermark position: ${position}`,
         reply_markup: keyboard,
-        filename: "watermarked_photo.jpg",
       });
 
       // Delete the original message

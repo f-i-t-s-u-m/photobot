@@ -31,7 +31,10 @@ async function downloadImage(
   bot: TelegramBot
 ): Promise<Buffer> {
   try {
-    const file: TelegramFile = await bot.getFile(fileId);
+    const file = await bot.getFile(fileId);
+    if (!file.file_path) {
+      throw new Error("File path not found");
+    }
     const response = await axios.get(
       `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`,
       {
