@@ -1,10 +1,10 @@
 {
   "version": 2,
   "functions": {
-    "app/api/webhook/route.js": {
+    "webhook/route.js": {
       "maxDuration": 30
     },
-    "app/api/init/route.js": {
+    "init/route.js": {
       "maxDuration": 30
     }
   },
