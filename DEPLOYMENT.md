@@ -1,312 +1,138 @@
-# Deployment Guide
+# Deployment Guide - Next.js 15 Telegram Bot
 
-This guide covers deployment options for the Telegram Watermark Bot on various serverless platforms.
+This guide will help you deploy your Telegram Watermark Bot to Vercel using Next.js 15.
 
 ## Prerequisites
 
-Before deploying, ensure you have:
+1. **Telegram Bot Token**: Get from [@BotFather](https://t.me/botfather)
+2. **LibSQL Database**: Create at [turso.tech](https://turso.tech)
+3. **Vercel Account**: Sign up at [vercel.com](https://vercel.com)
 
-1. **Telegram Bot Token** from [@BotFather](https://t.me/botfather)
-2. **Turso Database** created at [turso.tech](https://turso.tech)
-3. **Node.js 18+** installed locally
+## Step 1: Prepare Your Environment
 
-## Vercel Deployment (Recommended)
-
-### 1. Install Vercel CLI
-
-```bash
-npm install -g vercel
-```
-
-### 2. Deploy to Vercel
-
-```bash
-# Login to Vercel
-vercel login
-
-# Deploy
-vercel --prod
-```
-
-### 3. Configure Environment Variables
-
-```bash
-# Set Telegram Bot Token
-vercel env add TELEGRAM_BOT_TOKEN
-
-# Set Turso Database URL
-vercel env add TURSO_DATABASE_URL
-
-# Set Turso Auth Token
-vercel env add TURSO_AUTH_TOKEN
-```
-
-### 4. Set Webhook URL
-
-After deployment, set your webhook URL:
-
-```bash
-curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
-     -H "Content-Type: application/json" \
-     -d '{"url": "https://your-app.vercel.app/api/webhook"}'
-```
-
-### 5. Verify Deployment
-
-Check your bot's status:
-
-```bash
-curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
-```
-
-## AWS Lambda Deployment
-
-### 1. Prepare for Lambda
-
-Create a deployment package:
-
-```bash
-# Install dependencies
-npm install --production
-
-# Create ZIP file
-zip -r lambda-deployment.zip . -x "node_modules/.cache/*" "*.git*" "*.md" "env.example"
-```
-
-### 2. Create Lambda Function
-
-1. Go to AWS Lambda Console
-2. Create function with Node.js 18.x runtime
-3. Upload the ZIP file
-4. Set memory to 512MB (minimum for Sharp)
-5. Set timeout to 30 seconds
-
-### 3. Configure Environment Variables
-
-In Lambda console, set:
-
-- `TELEGRAM_BOT_TOKEN`
-- `TURSO_DATABASE_URL`
-- `TURSO_AUTH_TOKEN`
-
-### 4. Create API Gateway
-
-1. Create REST API
-2. Create resource `/webhook`
-3. Create POST method
-4. Enable CORS
-5. Deploy API
-
-### 5. Set Webhook URL
-
-```bash
-curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
-     -H "Content-Type: application/json" \
-     -d '{"url": "https://your-api-gateway-url.amazonaws.com/webhook"}'
-```
-
-## Cloudflare Workers Deployment
-
-### 1. Install Wrangler CLI
-
-```bash
-npm install -g wrangler
-```
-
-### 2. Create wrangler.toml
-
-```toml
-name = "telegram-watermark-bot"
-main = "api/webhook.js"
-compatibility_date = "2023-01-01"
-
-[env.production]
-vars = { ENVIRONMENT = "production" }
-
-[[env.production.kv_namespaces]]
-binding = "BOT_DATA"
-id = "your-kv-namespace-id"
-```
-
-### 3. Deploy
-
-```bash
-wrangler login
-wrangler deploy
-```
-
-### 4. Set Environment Variables
-
-```bash
-wrangler secret put TELEGRAM_BOT_TOKEN
-wrangler secret put TURSO_DATABASE_URL
-wrangler secret put TURSO_AUTH_TOKEN
-```
-
-### 5. Set Webhook URL
-
-```bash
-curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
-     -H "Content-Type: application/json" \
-     -d '{"url": "https://your-worker.your-subdomain.workers.dev"}'
-```
-
-## Railway Deployment
-
-### 1. Install Railway CLI
-
-```bash
-npm install -g @railway/cli
-```
-
-### 2. Deploy
-
-```bash
-railway login
-railway init
-railway up
-```
-
-### 3. Set Environment Variables
-
-```bash
-railway variables set TELEGRAM_BOT_TOKEN=your_token
-railway variables set TURSO_DATABASE_URL=your_url
-railway variables set TURSO_AUTH_TOKEN=your_token
-```
-
-### 4. Set Webhook URL
-
-```bash
-curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
-     -H "Content-Type: application/json" \
-     -d '{"url": "https://your-app.railway.app/webhook"}'
-```
-
-## Local Development with ngrok
-
-### 1. Install ngrok
-
-```bash
-npm install -g ngrok
-```
-
-### 2. Start Local Server
-
-```bash
-npm start
-```
-
-### 3. Create Tunnel
-
-```bash
-ngrok http 3000
-```
-
-### 4. Set Webhook URL
-
-Copy the ngrok URL and set it as your webhook:
-
-```bash
-curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
-     -H "Content-Type: application/json" \
-     -d '{"url": "https://your-ngrok-url.ngrok.io/webhook"}'
-```
-
-## Environment Variables Reference
-
-| Variable             | Description                | Example                                   |
-| -------------------- | -------------------------- | ----------------------------------------- |
-| `TELEGRAM_BOT_TOKEN` | Your Telegram bot token    | `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`    |
-| `TURSO_DATABASE_URL` | Turso database URL         | `libsql://your-db.turso.io`               |
-| `TURSO_AUTH_TOKEN`   | Turso authentication token | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` |
-| `WEBHOOK_URL`        | Webhook URL for production | `https://your-app.vercel.app/api/webhook` |
-
-## Troubleshooting Deployment
-
-### Common Issues
-
-1. **Function Timeout**
-
-   - Increase timeout to 30 seconds
-   - Optimize image processing
-   - Use smaller images for testing
-
-2. **Memory Issues**
-
-   - Increase memory allocation (512MB minimum)
-   - Optimize Sharp usage
-   - Handle large images properly
-
-3. **Webhook Not Working**
-
-   - Verify HTTPS URL
-   - Check CORS settings
-   - Ensure proper response format
-
-4. **Database Connection**
-   - Verify Turso credentials
-   - Check network connectivity
-   - Ensure database is accessible
-
-### Testing Deployment
-
-1. **Health Check**
+1. **Install dependencies**:
 
    ```bash
-   curl https://your-app.vercel.app/
+   npm install
    ```
 
-2. **Webhook Test**
+2. **Create environment file**:
 
    ```bash
-   curl -X POST https://your-app.vercel.app/api/webhook \
+   cp env.example .env.local
+   ```
+
+3. **Configure environment variables** in `.env.local`:
+   ```env
+   TELEGRAM_BOT_TOKEN=your_bot_token_here
+   WEBHOOK_URL=https://your-app-name.vercel.app
+   DATABASE_URL=libsql://your-database-name.turso.io
+   DATABASE_AUTH_TOKEN=your_turso_auth_token_here
+   ```
+
+## Step 2: Deploy to Vercel
+
+1. **Install Vercel CLI** (if not already installed):
+
+   ```bash
+   npm install -g vercel
+   ```
+
+2. **Deploy to Vercel**:
+
+   ```bash
+   npm run deploy
+   ```
+
+3. **Follow the prompts**:
+   - Link to existing project or create new
+   - Confirm deployment settings
+   - Wait for deployment to complete
+
+## Step 3: Configure Environment Variables on Vercel
+
+1. **Go to your Vercel dashboard**
+2. **Select your project**
+3. **Go to Settings → Environment Variables**
+4. **Add the following variables**:
+   - `TELEGRAM_BOT_TOKEN`
+   - `WEBHOOK_URL` (your Vercel app URL)
+   - `DATABASE_URL`
+   - `DATABASE_AUTH_TOKEN`
+
+## Step 4: Initialize the Bot
+
+1. **Visit your deployed app**: `https://your-app-name.vercel.app`
+2. **Initialize the bot**: Visit `https://your-app-name.vercel.app/api/init`
+3. **Verify webhook is set**: Check the response
+
+## Step 5: Test Your Bot
+
+1. **Open Telegram** and find your bot
+2. **Send `/start`** to begin
+3. **Upload a watermark image**
+4. **Send photos** to test watermarking
+
+## Troubleshooting
+
+### Bot Not Responding
+
+1. **Check webhook URL**:
+
+   ```bash
+   curl -X GET "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo"
+   ```
+
+2. **Re-set webhook if needed**:
+   ```bash
+   curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
         -H "Content-Type: application/json" \
-        -d '{"test": true}'
+        -d '{"url": "https://your-app-name.vercel.app/api/webhook"}'
    ```
 
-3. **Bot Status**
+### Environment Variables Issues
+
+1. **Check Vercel logs**:
+
    ```bash
-   curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getMe"
+   vercel logs
    ```
 
-## Monitoring and Logs
+2. **Redeploy after changing env vars**:
+   ```bash
+   vercel --prod
+   ```
 
-### Vercel
+### Database Connection Issues
 
-```bash
-vercel logs
-```
+1. **Verify LibSQL credentials**
+2. **Check database URL format**
+3. **Ensure database is accessible**
 
-### AWS Lambda
+## Monitoring
 
-- Check CloudWatch logs
-- Monitor function metrics
+- **Vercel Dashboard**: Monitor function performance
+- **Function Logs**: Check for errors and debugging
+- **Telegram Bot API**: Monitor webhook delivery
 
-### Cloudflare Workers
+## Performance Tips
 
-```bash
-wrangler tail
-```
-
-### Railway
-
-```bash
-railway logs
-```
+- **Image Size**: Keep images under 10MB for optimal performance
+- **Database**: Use LibSQL's connection pooling
+- **Caching**: Consider implementing response caching for repeated requests
 
 ## Security Considerations
 
-1. **Environment Variables**: Never commit sensitive data
-2. **Webhook Security**: Use HTTPS only
-3. **Rate Limiting**: Implement if needed
-4. **Input Validation**: Validate all user inputs
-5. **Error Handling**: Don't expose sensitive information in errors
+- **Environment Variables**: Never commit `.env.local` to version control
+- **Bot Token**: Keep your Telegram bot token secure
+- **Database Access**: Use read-only tokens where possible
+- **Rate Limiting**: Implement rate limiting for production use
 
-## Performance Optimization
+## Support
 
-1. **Image Processing**: Optimize Sharp settings
-2. **Database**: Use connection pooling
-3. **Caching**: Implement if needed
-4. **CDN**: Use for static assets
-5. **Monitoring**: Track performance metrics
+For issues:
+
+1. Check Vercel function logs
+2. Verify environment variables
+3. Test webhook connectivity
+4. Review this troubleshooting guide

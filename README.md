@@ -1,246 +1,106 @@
 # Telegram Watermark Bot
 
-A serverless Telegram bot that adds customizable watermarks to photos. Built with Node.js, Turso SQLite, and Sharp for image processing.
+A Telegram bot that adds watermarks to photos, built with Next.js 15 and deployed on Vercel.
 
 ## Features
 
-- 🖼️ **Watermark Application**: Add watermarks to photos with customizable positions
-- 🎨 **Position Customization**: Choose from 6 different watermark positions (top-left, top-right, center, bottom-left, bottom-right, bottom)
-- 💾 **User Management**: Store user watermarks and preferences in Turso SQLite database
-- 🔄 **Serverless**: Deploy on Vercel, AWS Lambda, or Cloudflare Workers
-- 📱 **Telegram Integration**: Uses Telegram's file storage (no external storage needed)
+- Add custom watermarks to photos
+- Multiple watermark positions (top-left, top-right, center, bottom-left, bottom-right, bottom)
+- User-specific watermark storage
+- Real-time position customization
+- Serverless deployment on Vercel
 
 ## Tech Stack
 
-- **Runtime**: Node.js 18+
-- **Telegram API**: `node-telegram-bot-api`
-- **Database**: Turso SQLite with `@libsql/client`
-- **Image Processing**: Sharp
-- **Deployment**: Vercel (serverless)
+- **Next.js 15** - React framework with API routes
+- **node-telegram-bot-api** - Telegram Bot API wrapper
+- **Sharp** - High-performance image processing
+- **LibSQL** - SQLite database for user data
+- **Vercel** - Serverless deployment platform
 
-## Prerequisites
+## Setup
 
-1. **Telegram Bot Token**: Create a bot via [@BotFather](https://t.me/botfather)
-2. **Turso Database**: Create a database at [turso.tech](https://turso.tech)
-3. **Node.js**: Version 18 or higher
+1. **Clone the repository**
 
-## Setup Instructions
+   ```bash
+   git clone <your-repo-url>
+   cd photobot
+   ```
 
-### 1. Clone and Install Dependencies
+2. **Install dependencies**
 
-```bash
-git clone <your-repo-url>
-cd telegram-watermark-bot
-npm install
-```
+   ```bash
+   npm install
+   ```
 
-### 2. Environment Configuration
+3. **Environment Variables**
+   Create a `.env.local` file with:
 
-Copy the example environment file and configure your variables:
+   ```env
+   TELEGRAM_BOT_TOKEN=your_bot_token_here
+   WEBHOOK_URL=https://your-domain.vercel.app
+   DATABASE_URL=your_libsql_database_url
+   DATABASE_AUTH_TOKEN=your_libsql_auth_token
+   ```
 
-```bash
-cp env.example .env
-```
+4. **Development**
 
-Edit `.env` with your actual values:
+   ```bash
+   npm run dev
+   ```
 
-```env
-# Telegram Bot Configuration
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
+5. **Deploy to Vercel**
+   ```bash
+   npm run deploy
+   ```
 
-# Turso Database Configuration
-TURSO_DATABASE_URL=libsql://your-database-name.turso.io
-TURSO_AUTH_TOKEN=your_turso_auth_token_here
+## API Routes
 
-# Bot Configuration (for production)
-WEBHOOK_URL=https://your-domain.vercel.app/api/webhook
-```
+- `GET /` - Health check and status page
+- `GET /api/init` - Initialize bot and set webhook
+- `POST /api/webhook` - Telegram webhook endpoint
 
-### 3. Database Setup
+## Bot Commands
 
-The bot will automatically create the required table on first run. The schema is:
-
-```sql
-CREATE TABLE users (
-    user_id TEXT PRIMARY KEY,
-    watermark_file_id TEXT,
-    watermark_position TEXT DEFAULT 'bottom',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### 4. Local Development
-
-For local development with polling:
-
-```bash
-npm run dev
-```
-
-For local development with webhook (requires ngrok):
-
-```bash
-# Install ngrok
-npm install -g ngrok
-
-# Start ngrok tunnel
-ngrok http 3000
-
-# Update your .env with the ngrok URL
-WEBHOOK_URL=https://your-ngrok-url.ngrok.io/api/webhook
-
-# Start the bot
-npm start
-```
+- `/start` - Start the bot and set up watermark
+- Send an image - Add watermark to the image
+- Use inline buttons to customize watermark position
 
 ## Deployment
 
-### Vercel Deployment
+The bot is designed to work with Vercel's serverless functions. After deployment:
 
-1. **Install Vercel CLI**:
+1. Visit your domain to verify the bot is running
+2. Call `/api/init` to set up the webhook with Telegram
+3. Start chatting with your bot!
 
-   ```bash
-   npm install -g vercel
-   ```
+## File Structure
 
-2. **Deploy**:
-
-   ```bash
-   vercel --prod
-   ```
-
-3. **Set Environment Variables**:
-
-   ```bash
-   vercel env add TELEGRAM_BOT_TOKEN
-   vercel env add TURSO_DATABASE_URL
-   vercel env add TURSO_AUTH_TOKEN
-   ```
-
-4. **Set Webhook URL**:
-   After deployment, set your webhook URL:
-   ```bash
-   curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
-        -H "Content-Type: application/json" \
-        -d '{"url": "https://your-app.vercel.app/api/webhook"}'
-   ```
-
-### AWS Lambda Deployment
-
-1. Create a Lambda function with Node.js 18.x runtime
-2. Upload the code as a ZIP file
-3. Set environment variables
-4. Configure API Gateway for webhook endpoint
-5. Set the webhook URL in Telegram
-
-### Cloudflare Workers
-
-1. Install Wrangler CLI
-2. Configure `wrangler.toml`
-3. Deploy with `wrangler deploy`
-
-## Usage
-
-### Bot Commands
-
-- `/start` - Initialize the bot and check watermark status
-
-### User Flow
-
-1. **First Time Setup**:
-
-   - Send `/start`
-   - Upload a watermark image (preferably PNG with transparent background)
-   - Bot confirms watermark is set
-
-2. **Adding Watermarks to Photos**:
-
-   - Send any photo to the bot
-   - Bot applies your watermark and returns the result
-   - Use "Customize Position" button to adjust watermark placement
-
-3. **Position Customization**:
-   - Click "🎨 Customize Position" button
-   - Choose from available positions
-   - Bot updates the photo with new position
-
-### Watermark Positions
-
-- **Top Left**: Top-left corner
-- **Top Right**: Top-right corner
-- **Center**: Center of the image
-- **Bottom Left**: Bottom-left corner
-- **Bottom Right**: Bottom-right corner
-- **Bottom**: Bottom center (default)
-
-## API Endpoints
-
-- `GET /` - Health check
-- `POST /api/webhook` - Telegram webhook endpoint
-
-## Error Handling
-
-The bot includes comprehensive error handling for:
-
-- Invalid image formats
-- Database connection issues
-- Telegram API rate limits
-- Image processing errors
-- Network timeouts
-
-## Performance Considerations
-
-- **Image Size**: Optimized for images up to 10MB
-- **Processing Time**: Typically 2-5 seconds per image
-- **Memory Usage**: Efficient buffer handling for serverless environments
-- **Database**: Lightweight queries with proper indexing
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Bot not responding**:
-
-   - Check webhook URL is correctly set
-   - Verify environment variables
-   - Check Vercel function logs
-
-2. **Image processing fails**:
-
-   - Ensure watermark image is valid
-   - Check image format (PNG recommended)
-   - Verify Sharp installation
-
-3. **Database errors**:
-   - Verify Turso credentials
-   - Check database URL format
-   - Ensure database is accessible
-
-### Logs
-
-Check Vercel function logs:
-
-```bash
-vercel logs
+```
+photobot/
+├── app/
+│   ├── api/
+│   │   ├── webhook/
+│   │   │   └── route.js      # Telegram webhook handler
+│   │   └── init/
+│   │       └── route.js      # Bot initialization
+│   ├── layout.js             # Root layout
+│   └── page.js               # Home page
+├── bot.js                    # Bot logic and handlers
+├── database.js               # Database operations
+├── imageProcessor.js         # Image processing with Sharp
+├── next.config.js            # Next.js configuration
+├── package.json              # Dependencies and scripts
+└── vercel.json               # Vercel deployment config
 ```
 
-## Contributing
+## Environment Variables
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+- `TELEGRAM_BOT_TOKEN` - Your Telegram bot token from @BotFather
+- `WEBHOOK_URL` - Your Vercel deployment URL
+- `DATABASE_URL` - LibSQL database URL
+- `DATABASE_AUTH_TOKEN` - LibSQL authentication token
 
 ## License
 
-MIT License - see LICENSE file for details
-
-## Support
-
-For issues and questions:
-
-- Create an issue on GitHub
-- Check the troubleshooting section
-- Review Vercel function logs
+MIT

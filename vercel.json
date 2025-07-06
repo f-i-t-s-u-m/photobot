@@ -1,8 +1,13 @@
 {
   "version": 2,
   "functions": {
-    "api/webhook.js": {
+    "app/api/webhook/route.js": {
+      "maxDuration": 30
+    },
+    "app/api/init/route.js": {
       "maxDuration": 30
     }
-  }
+  },
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next"
 } 
