@@ -59,7 +59,10 @@ interface User {
   updated_at: string;
 }
 
-type UserState = "waiting_for_watermark" | `customizing_${string}`;
+type UserState =
+  | "waiting_for_watermark"
+  | `customizing_${string}`
+  | `changing_watermark_${string}`;
 
 // Initialize bot
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN!, {
@@ -178,6 +181,68 @@ async function handlePhoto(msg: TelegramMessage): Promise<void> {
       return;
     }
 
+    // If user is changing watermark for a specific photo
+    if (userState && userState.startsWith("changing_watermark_")) {
+      const photoId = userState.split("_")[2];
+      const photoFileId = photoFileIds.get(photoId);
+
+      if (!photoFileId) {
+        await bot.sendMessage(
+          chatId,
+          "Original photo not found. Please try processing a new photo."
+        );
+        userStates.delete(userId);
+        return;
+      }
+
+      // Update user's watermark
+      await setUserWatermark(userId.toString(), fileId);
+      userStates.delete(userId);
+
+      // Get user's updated data
+      const user = await getUser(userId.toString());
+      if (!user) {
+        await bot.sendMessage(
+          chatId,
+          "User data not found. Please try /start again."
+        );
+        return;
+      }
+
+      // Process the original photo with new watermark
+      const watermarkedBuffer = await processImage(
+        photoFileId,
+        user.watermark_file_id,
+        user.watermark_position as WatermarkPositionType,
+        bot
+      );
+
+      // Create keyboard with both buttons
+      const keyboard = {
+        inline_keyboard: [
+          [
+            {
+              text: "🎨 Customize Position",
+              callback_data: `customize_${photoId}`,
+            },
+            {
+              text: "🔄 Change Watermark",
+              callback_data: `change_watermark_${photoId}`,
+            },
+          ],
+        ],
+      };
+
+      // Send updated photo
+      await bot.sendPhoto(chatId, watermarkedBuffer, {
+        caption: `Updated! New watermark applied. Position: ${user.watermark_position}`,
+        reply_markup: keyboard,
+      });
+
+      await bot.sendMessage(chatId, "✅ Watermark updated successfully!");
+      return;
+    }
+
     // Check if user has watermark
     const hasUserWatermark = await hasWatermark(userId.toString());
 
@@ -224,6 +289,10 @@ async function handlePhoto(msg: TelegramMessage): Promise<void> {
           {
             text: "🎨 Customize Position",
             callback_data: `customize_${photoId}`,
+          },
+          {
+            text: "🔄 Change Watermark",
+            callback_data: `change_watermark_${photoId}`,
           },
         ],
       ],
@@ -334,6 +403,10 @@ async function handleCallbackQuery(
               text: "🎨 Customize Position",
               callback_data: `customize_${photoId}`,
             },
+            {
+              text: "🔄 Change Watermark",
+              callback_data: `change_watermark_${photoId}`,
+            },
           ],
         ],
       };
@@ -349,6 +422,28 @@ async function handleCallbackQuery(
 
       userStates.delete(userId);
       await bot.answerCallbackQuery(query.id, { text: "Position updated!" });
+    } else if (data.startsWith("change_watermark_")) {
+      const photoId = data.split("_")[2];
+      const photoFileId = photoFileIds.get(photoId);
+
+      if (!photoFileId) {
+        await bot.answerCallbackQuery(query.id, {
+          text: "Photo not found. Please try again.",
+        });
+        return;
+      }
+
+      // Store the photo file ID for later use and set state to wait for new watermark
+      userStates.set(userId, `changing_watermark_${photoId}`);
+
+      await bot.answerCallbackQuery(query.id, {
+        text: "Please send me a new watermark image.",
+      });
+
+      await bot.sendMessage(
+        chatId,
+        "Please send me a new image to use as your watermark (preferably a PNG with transparent background)."
+      );
     }
   } catch (error) {
     console.error("Error handling callback query:", error);
@@ -374,6 +469,11 @@ async function handleText(msg: TelegramMessage): Promise<void> {
       await bot.sendMessage(
         chatId,
         "Please send me an image file to use as your watermark."
+      );
+    } else if (userState && userState.startsWith("changing_watermark_")) {
+      await bot.sendMessage(
+        chatId,
+        "Please send me an image file to use as your new watermark."
       );
     } else {
       await bot.sendMessage(

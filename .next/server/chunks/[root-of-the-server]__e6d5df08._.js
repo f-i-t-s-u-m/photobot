@@ -508,6 +508,7 @@ async function setWebhook(url) {
         const response = await __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$axios$2f$lib$2f$axios$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["default"].post(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/setWebhook`, {
             url: `${url}/api/webhook`
         });
+        console.log(response.data);
         const result = response.data;
         if (!result.ok) {
             throw new Error(`Failed to set webhook: ${result.description}`);
@@ -579,6 +580,49 @@ async function handlePhoto(msg) {
             await bot.sendMessage(chatId, message);
             return;
         }
+        // If user is changing watermark for a specific photo
+        if (userState && userState.startsWith("changing_watermark_")) {
+            const photoId = userState.split("_")[2];
+            const photoFileId = photoFileIds.get(photoId);
+            if (!photoFileId) {
+                await bot.sendMessage(chatId, "Original photo not found. Please try processing a new photo.");
+                userStates.delete(userId);
+                return;
+            }
+            // Update user's watermark
+            await (0, __TURBOPACK__imported__module__$5b$project$5d2f$database$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["setUserWatermark"])(userId.toString(), fileId);
+            userStates.delete(userId);
+            // Get user's updated data
+            const user = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$database$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["getUser"])(userId.toString());
+            if (!user) {
+                await bot.sendMessage(chatId, "User data not found. Please try /start again.");
+                return;
+            }
+            // Process the original photo with new watermark
+            const watermarkedBuffer = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$imageProcessor$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["processImage"])(photoFileId, user.watermark_file_id, user.watermark_position, bot);
+            // Create keyboard with both buttons
+            const keyboard = {
+                inline_keyboard: [
+                    [
+                        {
+                            text: "🎨 Customize Position",
+                            callback_data: `customize_${photoId}`
+                        },
+                        {
+                            text: "🔄 Change Watermark",
+                            callback_data: `change_watermark_${photoId}`
+                        }
+                    ]
+                ]
+            };
+            // Send updated photo
+            await bot.sendPhoto(chatId, watermarkedBuffer, {
+                caption: `Updated! New watermark applied. Position: ${user.watermark_position}`,
+                reply_markup: keyboard
+            });
+            await bot.sendMessage(chatId, "✅ Watermark updated successfully!");
+            return;
+        }
         // Check if user has watermark
         const hasUserWatermark = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$database$2e$ts__$5b$app$2d$route$5d$__$28$ecmascript$29$__["hasWatermark"])(userId.toString());
         if (!hasUserWatermark) {
@@ -609,6 +653,10 @@ async function handlePhoto(msg) {
                     {
                         text: "🎨 Customize Position",
                         callback_data: `customize_${photoId}`
+                    },
+                    {
+                        text: "🔄 Change Watermark",
+                        callback_data: `change_watermark_${photoId}`
                     }
                 ]
             ]
@@ -689,6 +737,10 @@ async function handleCallbackQuery(query) {
                         {
                             text: "🎨 Customize Position",
                             callback_data: `customize_${photoId}`
+                        },
+                        {
+                            text: "🔄 Change Watermark",
+                            callback_data: `change_watermark_${photoId}`
                         }
                     ]
                 ]
@@ -704,6 +756,21 @@ async function handleCallbackQuery(query) {
             await bot.answerCallbackQuery(query.id, {
                 text: "Position updated!"
             });
+        } else if (data.startsWith("change_watermark_")) {
+            const photoId = data.split("_")[2];
+            const photoFileId = photoFileIds.get(photoId);
+            if (!photoFileId) {
+                await bot.answerCallbackQuery(query.id, {
+                    text: "Photo not found. Please try again."
+                });
+                return;
+            }
+            // Store the photo file ID for later use and set state to wait for new watermark
+            userStates.set(userId, `changing_watermark_${photoId}`);
+            await bot.answerCallbackQuery(query.id, {
+                text: "Please send me a new watermark image."
+            });
+            await bot.sendMessage(chatId, "Please send me a new image to use as your watermark (preferably a PNG with transparent background).");
         }
     } catch (error) {
         console.error("Error handling callback query:", error);
@@ -724,6 +791,8 @@ async function handleText(msg) {
         const userState = userStates.get(userId);
         if (userState === "waiting_for_watermark") {
             await bot.sendMessage(chatId, "Please send me an image file to use as your watermark.");
+        } else if (userState && userState.startsWith("changing_watermark_")) {
+            await bot.sendMessage(chatId, "Please send me an image file to use as your new watermark.");
         } else {
             await bot.sendMessage(chatId, "Send me a photo to add your watermark, or use /start to see your options.");
         }
